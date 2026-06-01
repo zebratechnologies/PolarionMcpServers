@@ -499,7 +499,11 @@ PolarionRemoteMcpServer/appsettings.Development.json
 *.received.txt
 *.verified.txt
 
-# Test results
-TestResults/
-*.trx
-
+# Environment-specific settings files (may contain real credentials — never commit)
+appsettings.Production.json
+appsettings.Staging.json
+appsettings.*.Local.json
+**/appsettings.Production.json
+**/appsettings.Staging.json
+**/appsettings.*.Local.json
+*.secrets.json
