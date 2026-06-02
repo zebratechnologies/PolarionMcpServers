@@ -109,19 +109,58 @@ public class Program
             }
             
 
-            // Allow overriding passwords via the POLARION_PASSWORD environment variable.
-            // When set, applies to all projects as a global fallback.
+            // ── Credential injection from environment variables ────────────────────────
+            // Per-project:  POLARION_<ALIAS>_USERNAME / POLARION_<ALIAS>_PASSWORD
+            // Global:       POLARION_USERNAME / POLARION_PASSWORD
+            // API keys:     ApiConsumers__Consumers__<name>__ApplicationKey=<value>
+            //               (native ASP.NET Core environment variable override convention)
             var globalPassword = Environment.GetEnvironmentVariable("POLARION_PASSWORD");
-            if (!string.IsNullOrEmpty(globalPassword))
+            var globalUsername = Environment.GetEnvironmentVariable("POLARION_USERNAME");
+
+            foreach (var proj in polarionProjects)
             {
-                foreach (var proj in polarionProjects)
+                if (proj?.SessionConfig == null) continue;
+
+                var alias = proj.ProjectUrlAlias.ToUpperInvariant();
+
+                var perProjectPassword = Environment.GetEnvironmentVariable($"POLARION_{alias}_PASSWORD");
+                var perProjectUsername = Environment.GetEnvironmentVariable($"POLARION_{alias}_USERNAME");
+
+                if (!string.IsNullOrEmpty(perProjectPassword))
                 {
-                    if (proj?.SessionConfig != null)
-                    {
-                        proj.SessionConfig.Password = globalPassword;
-                        Log.Information("Overrode SessionConfig.Password for project '{ProjectAlias}' from env var 'POLARION_PASSWORD'", proj.ProjectUrlAlias);
-                    }
+                    proj.SessionConfig.Password = perProjectPassword;
+                    Log.Information("Overrode Password for project '{Alias}' from env var 'POLARION_{EnvAlias}_PASSWORD'", proj.ProjectUrlAlias, alias);
                 }
+                else if (!string.IsNullOrEmpty(globalPassword))
+                {
+                    proj.SessionConfig.Password = globalPassword;
+                    Log.Information("Overrode Password for project '{Alias}' from global env var 'POLARION_PASSWORD'", proj.ProjectUrlAlias);
+                }
+
+                if (!string.IsNullOrEmpty(perProjectUsername))
+                {
+                    proj.SessionConfig.Username = perProjectUsername;
+                    Log.Information("Overrode Username for project '{Alias}' from env var 'POLARION_{EnvAlias}_USERNAME'", proj.ProjectUrlAlias, alias);
+                }
+                else if (!string.IsNullOrEmpty(globalUsername))
+                {
+                    proj.SessionConfig.Username = globalUsername;
+                    Log.Information("Overrode Username for project '{Alias}' from global env var 'POLARION_USERNAME'", proj.ProjectUrlAlias);
+                }
+            }
+
+            // ── Startup validation — fail fast if any project has empty credentials ───
+            foreach (var proj in polarionProjects)
+            {
+                if (string.IsNullOrWhiteSpace(proj.SessionConfig?.Password))
+                    throw new InvalidOperationException(
+                        $"Password for project '{proj.ProjectUrlAlias}' is not configured. " +
+                        $"Set env var POLARION_{proj.ProjectUrlAlias.ToUpperInvariant()}_PASSWORD or POLARION_PASSWORD.");
+
+                if (string.IsNullOrWhiteSpace(proj.SessionConfig?.Username))
+                    throw new InvalidOperationException(
+                        $"Username for project '{proj.ProjectUrlAlias}' is not configured. " +
+                        $"Set env var POLARION_{proj.ProjectUrlAlias.ToUpperInvariant()}_USERNAME or POLARION_USERNAME.");
             }
 
             // Add Serilog
