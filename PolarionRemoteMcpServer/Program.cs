@@ -283,7 +283,7 @@ public class Program
                     context.Response.Headers.Connection = "keep-alive";
 
                     // Use a hardcoded JSON string to avoid reflection-based serialization issues in AOT
-                    const string fakeResponseJson = """{"id":0,"jsonrpc":"2.0","result":{}}"""
+                    const string fakeResponseJson = """{"id":0,"jsonrpc":"2.0","result":{}}""";
                     await context.Response.WriteAsync($"event: message\ndata: {fakeResponseJson}\n\n");
                     return; // Short-circuit, don't call next middleware
                 }
